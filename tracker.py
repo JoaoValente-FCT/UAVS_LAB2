@@ -6,7 +6,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Point, PoseStamped
 from crazyflie_interfaces.msg import Position
 from crazyflie_interfaces.srv import Takeoff
-from nav_msgs.msg import OccupancyGrid # <-- THE NEW EYES
+from nav_msgs.msg import OccupancyGrid
 
 class DroneTracker(Node):
     def __init__(self):
@@ -29,7 +29,6 @@ class DroneTracker(Node):
         self.create_subscription(Point, '/AGV/pose', self.truck_callback, 10)
         self.create_subscription(PoseStamped, '/cf_1/pose', self.drone_callback, 10)
         
-        # Subscribe to the actual 2D Map!
         self.create_subscription(OccupancyGrid, '/map', self.map_callback, 10)
         
         self.publisher = self.create_publisher(Position, '/cf_1/cmd_position', 10)
@@ -76,10 +75,9 @@ class DroneTracker(Node):
         self.drone_z = msg.pose.position.z
         self.have_drone = True
 
-    # --- THE NEW RADAR SCANNER ---
     def map_callback(self, msg):
         if self.have_obstacles:
-            return # We only need to scan the static map once
+            return
         
         res = msg.info.resolution
         origin_x = msg.info.origin.position.x
@@ -88,17 +86,14 @@ class DroneTracker(Node):
         
         obstacles = []
         
-        # Read the 1D map array (100 means there is a wall/tower there)
         for i, val in enumerate(msg.data):
             if val > 50: 
                 grid_y = i // width
                 grid_x = i % width
                 
-                # Convert grid square back to real-world meters
                 real_x = origin_x + (grid_x * res) + (res / 2.0)
                 real_y = origin_y + (grid_y * res) + (res / 2.0)
                 
-                # Add it to our obstacle list just like the old 3D code expected
                 obstacles.append((real_x, real_y, (res / 2.0) + self.safety_margin))
                 
         if obstacles:
